@@ -7,15 +7,16 @@
  * view is the short way in.
  *
  * **Two levels.** Opening the view lands on a home, and the home is
- * deliberately a bare list — one row per reference, its name and where it
- * goes, nothing else. It briefly carried the study catalogue's cards, with
- * the entry counts, the exam-sheet gauge and the section tally on each; all
- * of that already lives inside the open sheet, and a home you scan for a
- * name reads better at one line per destination — twenty references fit
- * where five summaries did. Nothing is auto-opened: the last sheet you read
- * is not the sheet you came for often enough that guessing costs more than
- * one click. Esc peels sheet → home → closed, the workbench's own ladder, in
- * the capture phase so App's ladder only sees the last rung.
+ * deliberately a bare list — one row per *course*, its name and one door.
+ * It briefly listed every reference flat, and before that carried the study
+ * catalogue's cards with counts and gauges on each; but a course's material
+ * belongs behind the course's own door, so the row says how many references
+ * wait inside and the course page carries the navigation — the sheet with
+ * its section pills, the imported notes as links above it. Nothing is
+ * auto-opened: the last sheet you read is not the sheet you came for often
+ * enough that guessing costs more than one click. Esc peels course → home →
+ * closed, the workbench's own ladder, in the capture phase so App's ladder
+ * only sees the last rung.
  *
  * Two families on purpose, mirroring GET /api/references: the contract's
  * `type: reference` sheets open here — the same `ReferenceDock` the
@@ -24,7 +25,7 @@
  * resources that share the name but not the grammar, open in Obsidian. The
  * row's right edge says which, so no click is a surprise.
  */
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { get, obsidianHref } from "./api";
 import type { References } from "./api";
 import ReferenceDock from "./reference";
@@ -115,44 +116,51 @@ export default function ReferencesView({ open, vault, onClose }: {
 
         {d && courses.length > 0 && sel === null && (
           <div className="refs-body"><div className="refs-col">
+            {/* One row per course — the course page carries everything past
+                that door: the sheet with its own section nav, and the
+                imported notes as links above it. The single exception is a
+                course whose only reference is an imported note: routing that
+                through a course page would be a hop to one link, so the row
+                *is* that link. */}
             <ul className="refs-list">
               {courses.map(c => {
                 const sheet = d.sheets.find(s => s.course === c) ?? null;
+                const extras = d.extras.filter(e => e.course === c);
+                const n = (sheet ? 1 : 0) + extras.length;
+                if (!sheet && n === 1) {
+                  const e = extras[0];
+                  return (
+                    <li key={c}>
+                      <a className="refs-row" href={obsidianHref(vault, e.file)}
+                         title={`${e.file} — opens in Obsidian`}>
+                        <span className="refs-row-name">
+                          <span className="refs-row-course">{c}</span>
+                          {e.title}
+                        </span>
+                        <span className="refs-row-go">Obsidian<span aria-hidden="true"> ↗</span></span>
+                      </a>
+                    </li>
+                  );
+                }
                 return (
-                  <Fragment key={c}>
-                    {sheet && (
-                      <li>
-                        <button className="refs-row" onClick={() => setSel(c)}
-                                title={`open the ${c} sheet`}>
-                          <span className="refs-row-name">
-                            <span className="refs-row-course">{c}</span>
-                            Reference sheet
-                            {/* Held is the one fact a bare row still owes you —
-                                the problems themselves are shown inside. */}
-                            {sheet.held > 0 && (
-                              <span className="refs-row-held"
-                                    title={`fails the grammar — ${sheet.held} problem${sheet.held === 1 ? "" : "s"}, shown inside`}>
-                                {" "}⚠
-                              </span>
-                            )}
+                  <li key={c}>
+                    <button className="refs-row" onClick={() => setSel(c)}
+                            title={`open ${c}'s reference${n === 1 ? "" : "s"}`}>
+                      <span className="refs-row-name">
+                        <span className="refs-row-course">{c}</span>
+                        {n === 1 ? "Reference sheet" : `${n} references`}
+                        {/* Held is the one fact a bare row still owes you —
+                            the problems themselves are shown inside. */}
+                        {sheet && sheet.held > 0 && (
+                          <span className="refs-row-held"
+                                title={`the sheet fails the grammar — ${sheet.held} problem${sheet.held === 1 ? "" : "s"}, shown inside`}>
+                            {" "}⚠
                           </span>
-                          <span className="refs-row-go">Open<span aria-hidden="true"> →</span></span>
-                        </button>
-                      </li>
-                    )}
-                    {d.extras.filter(e => e.course === c).map(e => (
-                      <li key={e.file}>
-                        <a className="refs-row" href={obsidianHref(vault, e.file)}
-                           title={`${e.file} — opens in Obsidian`}>
-                          <span className="refs-row-name">
-                            <span className="refs-row-course">{e.course}</span>
-                            {e.title}
-                          </span>
-                          <span className="refs-row-go">Obsidian<span aria-hidden="true"> ↗</span></span>
-                        </a>
-                      </li>
-                    ))}
-                  </Fragment>
+                        )}
+                      </span>
+                      <span className="refs-row-go">Open<span aria-hidden="true"> →</span></span>
+                    </button>
+                  </li>
                 );
               })}
             </ul>

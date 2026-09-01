@@ -1020,6 +1020,19 @@ def api_reference(course: str):
     return d
 
 
+def _scan_references() -> dict:
+    return ln.scan_references(VAULT, split=_lesson_split)
+
+
+@router.get("/references")
+def api_references():
+    """Every course's reference material, summarised — the RF rail slot's
+    list. 30s like the lesson list and for the same reason: a handful of
+    files, re-read on a poll that cannot change them. The sheet a click
+    opens still arrives fresh through /reference/{course}."""
+    return _cached("references", 30, _scan_references)
+
+
 @router.get("/checkpoint/{course}/{cp_no}")
 def api_checkpoint(course: str, cp_no: int):
     # Fresh like the lesson detail, and for the same reason. The sidecar key

@@ -338,6 +338,22 @@ export type Reference = {
   exam_chars: number; exam_budget: number;
   counts: { all: number; exam: number };
 };
+/** The RF slot's list — every course's reference material, summarised.
+ *  `sheets` are the contract's `type: reference` notes, which render here
+ *  through the tier toggle; `extras` are a course's other `*-reference.md`
+ *  notes — imported resources that share the name but not the grammar, so
+ *  each is a link into Obsidian instead. */
+export type ReferenceSheetRow = {
+  course: string; file: string; sections: number;
+  counts: { all: number; exam: number };
+  exam_chars: number; exam_budget: number; held: number;
+};
+export type ReferenceExtraRow = {
+  course: string; file: string; title: string; type: string;
+};
+export type References = {
+  sheets: ReferenceSheetRow[]; extras: ReferenceExtraRow[];
+};
 export type LessonList = {
   modules: LessonListRow[]; checkpoints: CheckpointListRow[];
 };

@@ -187,6 +187,68 @@ class TestLoading(unittest.TestCase):
         self.assertIsNone(ln.load_reference(self.vault, "CSE-999"))
 
 
+class TestScan(unittest.TestCase):
+    """`scan_references` — the RF slot's list. What is worth pinning: the
+    two families stay split (a `type: reference` sheet summarises, any other
+    `*-reference.md` at the course root lists as an extra), the summary is a
+    summary rather than the sections, and sealing withholds each family the
+    same fail-closed way as everything else."""
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.vault = Path(self.tmp.name)
+        folder = self.vault / "02-Areas" / "Academics" / "AA-210"
+        folder.mkdir(parents=True)
+        (folder / "aa-210-reference.md").write_text(OK, encoding="utf-8")
+        (folder / "imported-tables-reference.md").write_text(
+            "---\ntype: resource\ncourse: AA-210\ntags: [resource]\n---\n\n"
+            "# Imported tables\n\nbody\n", encoding="utf-8")
+        # A second course with only an extra — it must still appear.
+        other = self.vault / "02-Areas" / "Academics" / "CSE-999"
+        other.mkdir(parents=True)
+        (other / "old-notes-reference.md").write_text(
+            "---\ntype: resource\ncourse: CSE-999\ntags: [resource]\n---\n\n"
+            "no heading here\n", encoding="utf-8")
+        self.open_split = lambda _v, rels: (set(), set(rels))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_the_two_families_come_back_split(self):
+        d = ln.scan_references(self.vault, split=self.open_split)
+        self.assertEqual([s["course"] for s in d["sheets"]], ["AA-210"])
+        self.assertEqual([e["course"] for e in d["extras"]],
+                         ["AA-210", "CSE-999"])
+
+    def test_the_sheet_row_is_a_summary_not_the_sections(self):
+        d = ln.scan_references(self.vault, split=self.open_split)
+        row = d["sheets"][0]
+        self.assertEqual(row["sections"], 2)          # a count, not a list
+        self.assertEqual(row["counts"], {"all": 3, "exam": 2})
+        self.assertEqual(row["held"], 0)
+        self.assertEqual(row["exam_budget"], ln.EXAM_BUDGET)
+        self.assertNotIn("problems", row)
+
+    def test_an_extra_names_itself_by_its_heading(self):
+        d = ln.scan_references(self.vault, split=self.open_split)
+        by_course = {e["course"]: e for e in d["extras"]}
+        self.assertEqual(by_course["AA-210"]["title"], "Imported tables")
+        # No H1 → the basename, made readable.
+        self.assertEqual(by_course["CSE-999"]["title"], "old notes reference")
+
+    def test_sealing_withholds_both_families(self):
+        d = ln.scan_references(self.vault,
+                               split=lambda _v, rels: (set(rels), set()))
+        self.assertEqual(d, {"sheets": [], "extras": []})
+
+    def test_the_default_split_fails_closed(self):
+        """A vault the privacy module cannot answer for lists nothing —
+        `load_reference`'s direction, kept."""
+        d = ln.scan_references(self.vault)
+        self.assertEqual(d, {"sheets": [], "extras": []})
+
+
 class TestDispatch(unittest.TestCase):
     def test_validate_any_routes_by_the_note_s_own_type(self):
         """Running the module validator over a reference would report a dozen

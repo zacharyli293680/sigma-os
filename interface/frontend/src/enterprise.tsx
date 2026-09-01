@@ -34,6 +34,7 @@ const NAV: [key: string, label: string, state: "live" | "soon"][] = [
   ["WK", "Work", "live"],
   ["CA", "Calendar", "live"],
   ["ST", "Study", "live"],
+  ["RF", "References", "live"],
   ["BD", "Build", "live"],
   ["AG", "Agents", "soon"],
   ["CR", "Career", "soon"],
@@ -62,7 +63,7 @@ export interface EnterpriseProps {
   themeName: string;
   roomName: string;
   open: { work: boolean; agenda: boolean; study: boolean; build: boolean;
-          nosync: boolean; soon: string | null };
+          refs: boolean; nosync: boolean; soon: string | null };
   onHealth: () => void;
   onTheme: () => void;
   onRoom: () => void;
@@ -74,6 +75,7 @@ export interface EnterpriseProps {
   onAgenda: () => void;
   onStudy: () => void;
   onBuild: () => void;
+  onRefs: () => void;
   onSoon: (slot: string) => void;
   onNoSync: () => void;
   onReview: (name: string) => void;
@@ -82,7 +84,7 @@ export interface EnterpriseProps {
 
 export default function EnterpriseShell(p: EnterpriseProps) {
   const nothingOver = !p.open.work && !p.open.agenda && !p.open.study
-    && !p.open.build && !p.open.nosync && p.open.soon === null;
+    && !p.open.build && !p.open.refs && !p.open.nosync && p.open.soon === null;
 
   // The same health vocabulary as the strip — different dress, same words,
   // because two shells disagreeing about "all clear" would be the worst bug
@@ -157,10 +159,12 @@ export default function EnterpriseShell(p: EnterpriseProps) {
             const active = k === "OV" ? nothingOver
               : k === "WK" ? p.open.work : k === "CA" ? p.open.agenda
               : k === "ST" ? p.open.study : k === "BD" ? p.open.build
+              : k === "RF" ? p.open.refs
               : p.open.soon === k;
             const go = k === "OV" ? undefined
               : k === "WK" ? p.onWork : k === "CA" ? p.onAgenda
               : k === "ST" ? p.onStudy : k === "BD" ? p.onBuild
+              : k === "RF" ? p.onRefs
               : () => p.onSoon(k);
             return (
               <button key={k} onClick={go}

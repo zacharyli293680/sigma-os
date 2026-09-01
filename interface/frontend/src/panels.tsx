@@ -100,6 +100,7 @@ const RAIL: [string, string, "live" | "soon"][] = [
   ["CA", "Calendar — week, month and the 14-day list (Ctrl+')", "live"],
   ["WK", "Work — the four priority queues", "live"],
   ["ST", "Study — the workbench (Ctrl + backslash)", "live"],
+  ["RF", "References — every course's reference sheet", "live"],
   ["BD", "Build — repo awareness", "live"],
   ["CR", "Career — designed, not built. Click to see what will go here", "soon"],
   ["SY", "System — designed, not built. Click to see what will go here", "soon"],
@@ -110,12 +111,14 @@ const RAIL: [string, string, "live" | "soon"][] = [
 export function Rail({ noSyncOpen, onNoSync, noSyncCount,
                       studyOpen, onStudy, buildOpen, onBuild,
                       workOpen, onWork, agendaOpen, onAgenda,
+                      refsOpen, onRefs,
                       soonSlot, onSoon }: {
   noSyncOpen: boolean; onNoSync: () => void; noSyncCount: number | null;
   studyOpen: boolean; onStudy: () => void;
   buildOpen: boolean; onBuild: () => void;
   workOpen: boolean; onWork: () => void;
   agendaOpen: boolean; onAgenda: () => void;
+  refsOpen: boolean; onRefs: () => void;
   soonSlot: string | null; onSoon: (slot: string) => void;
 }) {
   return (
@@ -124,12 +127,13 @@ export function Rail({ noSyncOpen, onNoSync, noSyncCount,
         const soon = state === "soon";
         const active = k === "ST" ? studyOpen
           : k === "BD" ? buildOpen : k === "WK" ? workOpen : k === "CA" ? agendaOpen
+          : k === "RF" ? refsOpen
           : k === "OV" ? !studyOpen && !buildOpen && !workOpen && !agendaOpen
-                         && soonSlot === null
+                         && !refsOpen && soonSlot === null
           : soon ? soonSlot === k
           : false;
         const go = k === "ST" ? onStudy : k === "BD" ? onBuild
-          : k === "WK" ? onWork : k === "CA" ? onAgenda
+          : k === "WK" ? onWork : k === "CA" ? onAgenda : k === "RF" ? onRefs
           : soon ? () => onSoon(k) : undefined;
         return (
           <button key={k} className={`${active ? "active" : ""} ${soon ? "soon" : ""}`}

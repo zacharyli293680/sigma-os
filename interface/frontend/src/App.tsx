@@ -19,6 +19,7 @@ import NoSyncView from "./nosync";
 import Palette from "./palette";
 import Review from "./review";
 import BuildView from "./build";
+import ReferencesView from "./references";
 import SoonView from "./soon";
 import WorkbenchView from "./workbench";
 import WorkView from "./work";
@@ -101,6 +102,7 @@ export default function App() {
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [workbenchOpen, setWorkbenchOpen] = useState(false);
   const [buildOpen, setBuildOpen] = useState(false);
+  const [refsOpen, setRefsOpen] = useState(false);
   // Which unbuilt rail slot is showing its placeholder (§5.4). One piece of
   // state for all three: they are mutually exclusive, and a boolean each would
   // be three more rungs on the Esc ladder for one behaviour.
@@ -291,6 +293,7 @@ export default function App() {
         // from the today rail, so Esc unwinds in the order you arrived.
         else if (agendaOpen) setAgendaOpen(false);
         else if (buildOpen) setBuildOpen(false);
+        else if (refsOpen) setRefsOpen(false);
         else if (soonSlot) setSoonSlot(null);
         else if (paletteOpen) setPaletteOpen(false);
         else if (noSyncOpen) setNoSyncOpen(false);
@@ -307,8 +310,8 @@ export default function App() {
     // opens and closes on Ctrl+' while Esc silently skips its rung. `agendaOpen`
     // was missing exactly that way and it took driving the view to notice.
   }, [paletteOpen, ledgerOpen, chatOpen, noSyncOpen, reviewing,
-      workbenchOpen, buildOpen, workOpen, agendaOpen, captureOpen, brainFilter,
-      soonSlot]);
+      workbenchOpen, buildOpen, refsOpen, workOpen, agendaOpen, captureOpen,
+      brainFilter, soonSlot]);
 
   // Palette jobs stream here and take over the dock while they run; when one
   // finishes, the panels it may have changed refetch immediately.
@@ -368,7 +371,8 @@ export default function App() {
           vault={vault} clock={clock} activity={dock}
           themeName={theme.name} roomName={room.name}
           open={{ work: workOpen, agenda: agendaOpen, study: workbenchOpen,
-                  build: buildOpen, nosync: noSyncOpen, soon: soonSlot }}
+                  build: buildOpen, refs: refsOpen, nosync: noSyncOpen,
+                  soon: soonSlot }}
           onHealth={checkHealth}
           onTheme={() => setThemeOpen(o => !o)}
           onRoom={() => setRoomOpen(o => !o)}
@@ -380,6 +384,7 @@ export default function App() {
           onAgenda={() => setAgendaOpen(o => !o)}
           onStudy={() => setWorkbenchOpen(o => !o)}
           onBuild={() => setBuildOpen(o => !o)}
+          onRefs={() => setRefsOpen(o => !o)}
           onSoon={k => setSoonSlot(s => (s === k ? null : k))}
           onNoSync={() => setNoSyncOpen(o => !o)}
           onReview={setReviewing}
@@ -399,6 +404,7 @@ export default function App() {
               buildOpen={buildOpen} onBuild={() => setBuildOpen(o => !o)}
               workOpen={workOpen} onWork={() => setWorkOpen(o => !o)}
               agendaOpen={agendaOpen} onAgenda={() => setAgendaOpen(o => !o)}
+              refsOpen={refsOpen} onRefs={() => setRefsOpen(o => !o)}
               soonSlot={soonSlot}
               onSoon={k => setSoonSlot(s => (s === k ? null : k))} />
         {/* The centre stage: one scene, not a panel with a picture in it. The sky
@@ -457,6 +463,7 @@ export default function App() {
                      onClose={() => setWorkbenchOpen(false)}
                      guideProg={guideProg} />
       <BuildView open={buildOpen} vault={vault} onClose={() => setBuildOpen(false)} />
+      <ReferencesView open={refsOpen} vault={vault} onClose={() => setRefsOpen(false)} />
       <SoonView slot={soonSlot} vault={vault} onClose={() => setSoonSlot(null)} />
       <WorkView open={workOpen} vault={vault} onClose={() => setWorkOpen(false)}
                 onMutate={refresh} />

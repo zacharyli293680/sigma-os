@@ -1450,6 +1450,7 @@ unambiguous version.
 | 2026-08-01 | `mapper.py` and `scaffold.py`. **The priority-queue engine** — four self-maintaining queues replacing the day-bucketed list, with quick-add, AI reword, completion/promotion, expansion views, and snooze/pin/archive/move. **`retro.py`** — the 06:00 retrospective, and the planner it replaces, retired |
 | 2026-08-02 | **Agenda P0** — the calendar's contract amendment: `02-Areas/Personal/Calendar/`, the `#calendar` tag, tasks are date-only, a `Calendar events` section holding the line grammar, and the `calendar-month` and `schedule` schemas. Approved and placed by hand, because `reflect --apply` appends contract blocks to one section and this one belongs in five |
 | 2026-08-03 | **Agenda P1** — `runtime/agenda.py`: the resolver, read-only. Event and rule parsing, read-time expansion, the merge, provenance on every occurrence, conflict detection, a TTL over the scan. **Agenda P2** — `GET /api/agenda`, and `/api/tasks` folded in behind the same resolver rather than left as a second answer to "what is due". **Agenda P3** — the today rail, replacing the 14-day strip and retiring `calendar.tsx`; free-hours-left displayed and feeding nothing. **Agenda P4** — the full week/month/agenda view on `Ctrl+'` and rail slot CA, read-only, with `[?]` provenance on every occurrence. **Agenda P5** — the write path: quick-add, drag-to-reschedule, cancel, an eight-hold table with one adversarial test each, and `cancelled::` added to the contract |
+| 2026-09-01 | **References (rail slot RF)** — every course's reference material behind one click, in both rooms. `GET /api/references` (`lesson.scan_references`) lists the contract's `type: reference` sheets summarised plus each course's other `*-reference.md` notes as Obsidian links; the view reuses the workbench's `ReferenceDock` wholesale — same fetch, same tier toggle — so the two doors cannot disagree |
 
 ### The feature list, by area
 
@@ -1480,7 +1481,8 @@ project scaffolding from one line.
 
 **Interface** — cited streaming Q&A over the vault with an `obsidian://` link per citation · a
 21-verb command palette that cannot invoke anything off its whitelist · the live-firing brain · the
-reactor · the activity ledger · the no-sync lens · quick capture · proposal diff and decide.
+reactor · the activity ledger · the no-sync lens · quick capture · proposal diff and decide · every
+reference sheet behind one rail slot (RF), the workbench's own renderer reused.
 
 ---
 

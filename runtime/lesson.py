@@ -1306,6 +1306,57 @@ def load_reference(vault: Path, course: str, split=None) -> dict | None:
     return d
 
 
+def scan_references(vault: Path, split=None) -> dict:
+    """Every reference sheet under Academics, summarised — GET /api/references.
+
+    Two families, split on purpose because the renderer treats them
+    differently: `sheets` are the contract's own `type: reference` notes
+    (`<code>-reference.md` at each course root), which the workbench's tier
+    toggle can render; `extras` are the other `*-reference.md` notes a course
+    carries — imported resources that share the name but not the grammar, so
+    they open in Obsidian rather than here. Course-root only, like the sheet
+    itself: a `-reference` basename elsewhere in the vault is a doc, not a
+    course's lookup material.
+    """
+    root = vault.joinpath(*ACADEMICS)
+    out: dict = {"sheets": [], "extras": []}
+    if not root.is_dir():
+        return out
+    for folder in sorted(root.iterdir()):
+        if not folder.is_dir():
+            continue
+        course = folder.name
+        d = load_reference(vault, course, split=split)
+        if d is not None:
+            # The summary, not the sections: the list is polled and cached,
+            # and the sheet itself is re-parsed fresh on open like a lesson.
+            out["sheets"].append({
+                "course": course, "file": d["file"],
+                "sections": len(d["sections"]), "counts": d["counts"],
+                "exam_chars": d["exam_chars"], "exam_budget": d["exam_budget"],
+                "held": len(d["problems"]),
+            })
+        extras = [p for p in sorted(folder.glob("*-reference.md"))
+                  if p.name.lower() != f"{course.lower()}-reference.md"]
+        rels = [p.relative_to(vault).as_posix() for p in extras]
+        sealed, _ = (split or _default_split)(vault, rels)
+        for p, rel in zip(extras, rels):
+            if rel in sealed:
+                continue
+            try:
+                text = p.read_text(encoding="utf-8-sig", errors="replace")
+            except OSError:
+                continue
+            fm = frontmatter(text) or {}
+            m = re.search(r"^#\s+(.+?)\s*$", text, re.M)
+            out["extras"].append({
+                "course": course, "file": rel,
+                "title": m.group(1) if m else p.stem.replace("-", " "),
+                "type": str(fm.get("type") or "").strip(),
+            })
+    return out
+
+
 # Units are earned by count, mechanically (§4): ≤8 modules → flat, no unit
 # sections; 9–30 → units of 4–6 drawn at the course's own seams.
 FLAT_MAX = 8

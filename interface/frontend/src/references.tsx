@@ -6,98 +6,28 @@
  * you take while studying, not while checking one equation mid-problem. This
  * view is the short way in.
  *
- * **Two levels, the study room's own shape.** Opening the view lands on a
- * home — one card per course, the catalogue's visual vocabulary (`.wb-card`),
- * because choosing a sheet is the same act as choosing a course to study and
- * should look like it. Nothing is auto-opened: the last sheet you read is not
- * the sheet you came for often enough that guessing costs more than one
- * click. A card opens its course's sheet — the same `ReferenceDock` the
- * workbench mounts, same fetch, same tier toggle, so the two doors can never
- * disagree — and Esc peels sheet → home → closed, the workbench's own ladder,
- * in the capture phase so App's ladder only sees the last rung.
+ * **Two levels.** Opening the view lands on a home, and the home is
+ * deliberately a bare list — one row per reference, its name and where it
+ * goes, nothing else. It briefly carried the study catalogue's cards, with
+ * the entry counts, the exam-sheet gauge and the section tally on each; all
+ * of that already lives inside the open sheet, and a home you scan for a
+ * name reads better at one line per destination — twenty references fit
+ * where five summaries did. Nothing is auto-opened: the last sheet you read
+ * is not the sheet you came for often enough that guessing costs more than
+ * one click. Esc peels sheet → home → closed, the workbench's own ladder, in
+ * the capture phase so App's ladder only sees the last rung.
  *
  * Two families on purpose, mirroring GET /api/references: the contract's
- * `type: reference` sheets render here; a course's other `*-reference.md`
- * notes — imported resources that share the name but not the grammar — are
- * links into Obsidian, on the card and again above the open sheet.
+ * `type: reference` sheets open here — the same `ReferenceDock` the
+ * workbench mounts, same fetch, same tier toggle, so the two doors can never
+ * disagree — while a course's other `*-reference.md` notes, imported
+ * resources that share the name but not the grammar, open in Obsidian. The
+ * row's right edge says which, so no click is a surprise.
  */
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { get, obsidianHref } from "./api";
-import type { References, ReferenceExtraRow, ReferenceSheetRow } from "./api";
+import type { References } from "./api";
 import ReferenceDock from "./reference";
-
-function SheetCard({ course, sheet, extras, vault, onOpen }: {
-  course: string;
-  sheet: ReferenceSheetRow | null;
-  extras: ReferenceExtraRow[];
-  vault: string;
-  onOpen: () => void;
-}) {
-  const pct = sheet
-    ? Math.min(100, Math.round((sheet.exam_chars / sheet.exam_budget) * 100))
-    : 0;
-  return (
-    <section className={`panel wb-card ${sheet && sheet.held > 0 ? "attn" : ""}`}>
-      <h2>
-        <button className="wb-card-open" onClick={onOpen}
-                title={`open the ${course} sheet`}>{course}</button>
-        <span className="wb-card-count">
-          {sheet ? `${sheet.counts.all} entries` : "no sheet"}
-        </span>
-      </h2>
-
-      {sheet && (
-        <p className="wb-card-bar">
-          <span className="cov-bar" role="img"
-                aria-label={`${sheet.exam_chars} of ${sheet.exam_budget} exam-sheet characters`}>
-            <span className="cov-fill" style={{ width: `${pct}%` }} />
-          </span>
-          <span className="dim">
-            {sheet.counts.exam} on the exam sheet · {pct}% of a page
-          </span>
-        </p>
-      )}
-      {sheet && (
-        <p className="wb-card-meta dim">
-          {sheet.sections} section{sheet.sections === 1 ? "" : "s"}
-        </p>
-      )}
-      {/* Held is the one thing on this screen that is genuinely on you — the
-          catalogue's rule, kept: it alone gets the frame and a word. */}
-      {sheet && sheet.held > 0 && (
-        <p className="wb-card-meta wb-card-warn">
-          ⚠ fails the grammar — {sheet.held} problem{sheet.held === 1 ? "" : "s"}, shown inside
-        </p>
-      )}
-      {!sheet && (
-        <p className="wb-card-meta dim">
-          no contract sheet yet — <code>sigma guide reference {course}</code> writes one
-        </p>
-      )}
-
-      {/* The imported sheets are destinations in their own right, so they are
-          links here, not a count — quick access is the whole point of the
-          home. Each opens in Obsidian: they share the name, not the grammar. */}
-      {extras.length > 0 && (
-        <ul className="refs-card-extras">
-          {extras.map(e => (
-            <li key={e.file}>
-              <a href={obsidianHref(vault, e.file)}
-                 title={`${e.file} — opens in Obsidian`}>▤ {e.title}</a>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <p className="wb-card-act">
-        <button className={`wb-btn ${sheet ? "wb-btn-primary" : ""}`} onClick={onOpen}
-                title={sheet ? "open the sheet" : "open — the empty slot says how to write one"}>
-          Open<span aria-hidden="true"> →</span>
-        </button>
-      </p>
-    </section>
-  );
-}
 
 export default function ReferencesView({ open, vault, onClose }: {
   open: boolean; vault: string; onClose: () => void;
@@ -132,7 +62,7 @@ export default function ReferencesView({ open, vault, onClose }: {
   }, [open, sel]);
 
   // Sheets first in the scan's order, then any course that only has extras —
-  // the union is the card grid, so nothing with material is unreachable.
+  // the union orders the list, so nothing with material is unreachable.
   const courses = useMemo(() => {
     if (!d) return [];
     const seen = new Set<string>();
@@ -185,14 +115,47 @@ export default function ReferencesView({ open, vault, onClose }: {
 
         {d && courses.length > 0 && sel === null && (
           <div className="refs-body"><div className="refs-col">
-            <div className="wb-grid refs-grid">
-              {courses.map(c => (
-                <SheetCard key={c} course={c} vault={vault}
-                           sheet={d.sheets.find(s => s.course === c) ?? null}
-                           extras={d.extras.filter(e => e.course === c)}
-                           onOpen={() => setSel(c)} />
-              ))}
-            </div>
+            <ul className="refs-list">
+              {courses.map(c => {
+                const sheet = d.sheets.find(s => s.course === c) ?? null;
+                return (
+                  <Fragment key={c}>
+                    {sheet && (
+                      <li>
+                        <button className="refs-row" onClick={() => setSel(c)}
+                                title={`open the ${c} sheet`}>
+                          <span className="refs-row-name">
+                            <span className="refs-row-course">{c}</span>
+                            Reference sheet
+                            {/* Held is the one fact a bare row still owes you —
+                                the problems themselves are shown inside. */}
+                            {sheet.held > 0 && (
+                              <span className="refs-row-held"
+                                    title={`fails the grammar — ${sheet.held} problem${sheet.held === 1 ? "" : "s"}, shown inside`}>
+                                {" "}⚠
+                              </span>
+                            )}
+                          </span>
+                          <span className="refs-row-go">Open<span aria-hidden="true"> →</span></span>
+                        </button>
+                      </li>
+                    )}
+                    {d.extras.filter(e => e.course === c).map(e => (
+                      <li key={e.file}>
+                        <a className="refs-row" href={obsidianHref(vault, e.file)}
+                           title={`${e.file} — opens in Obsidian`}>
+                          <span className="refs-row-name">
+                            <span className="refs-row-course">{e.course}</span>
+                            {e.title}
+                          </span>
+                          <span className="refs-row-go">Obsidian<span aria-hidden="true"> ↗</span></span>
+                        </a>
+                      </li>
+                    ))}
+                  </Fragment>
+                );
+              })}
+            </ul>
           </div></div>
         )}
 

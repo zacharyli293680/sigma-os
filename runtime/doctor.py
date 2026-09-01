@@ -588,6 +588,17 @@ def check_modules(out):
     # edit, so a broken row must surface here, not as a run that plans nothing.
     rows = (ln.scan(ln.DEFAULT_VAULT) + ln.scan_checkpoints(ln.DEFAULT_VAULT)
             + ln.scan_blueprints(ln.DEFAULT_VAULT))
+    # Reference sheets too (S9) — hand-editable like everything above. The
+    # scan summarises problems to a count, so a held sheet is re-loaded for
+    # the message; doctor runs occasionally and the vault has a handful.
+    for s in ln.scan_references(ln.DEFAULT_VAULT)["sheets"]:
+        if s["held"]:
+            d = ln.load_reference(ln.DEFAULT_VAULT, s["course"])
+            rows.append({"file": s["file"],
+                         "problems": (d or {}).get("problems")
+                         or ["sheet unreadable"]})
+        else:
+            rows.append({"file": s["file"], "problems": []})
     if not rows:
         return                      # no guides yet — nothing worth saying
     broken = [r for r in rows if r["problems"]]

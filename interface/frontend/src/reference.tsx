@@ -19,6 +19,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { get, obsidianHref } from "./api";
 import type { Reference, ReferenceEntry } from "./api";
+import Figure from "./figure";
 import { Rich } from "./rich";
 
 type Tier = "full" | "exam";
@@ -47,6 +48,7 @@ function Entry({ e }: { e: ReferenceEntry }) {
         </span>
       </h4>
       <div className="ref-e-b"><Rich text={e.body} /></div>
+      {e.figure && <Figure svg={e.figure.svg} caption={e.figure.caption} />}
     </article>
   );
 }

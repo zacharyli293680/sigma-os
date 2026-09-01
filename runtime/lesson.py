@@ -1147,16 +1147,21 @@ def parse_reference(text: str) -> dict:
             section["entries"].append(entry)
         entry, body = None, []
 
-    for i in range(start, len(lines)):
+    # A while rather than a for, because a figure consumes lines: `figure::`
+    # runs from its key to the `</svg>` and none of that is body.
+    i, n = start, len(lines)
+    while i < n:
         line = lines[i]
         if line.lstrip().startswith("```"):
             in_fence = not in_fence
             if entry is not None:
                 body.append(line)
+            i += 1
             continue
         if in_fence:
             if entry is not None:
                 body.append(line)
+            i += 1
             continue
 
         m = REF_ENTRY_RE.match(line)
@@ -1168,7 +1173,8 @@ def parse_reference(text: str) -> dict:
                 out["sections"].append(section)
             close_entry()
             entry = {"title": m.group(1), "kind": None, "tier": None,
-                     "line": i + 1, "body": ""}
+                     "line": i + 1, "body": "", "figure": None}
+            i += 1
             continue
 
         m = REF_SECTION_RE.match(line)
@@ -1176,9 +1182,40 @@ def parse_reference(text: str) -> dict:
             close_entry()
             section = {"title": m.group(1), "entries": []}
             out["sections"].append(section)
+            i += 1
             continue
 
         if entry is not None:
+            # A figure, exactly the module segment's grammar (one per entry,
+            # caption required, raw unfenced SVG to the closing tag) — one
+            # grammar, another use. Allowed anywhere in the entry: unlike
+            # `kind::`, a diagram is content, not a header.
+            gm = FIGURE_RE.match(line)
+            if gm:
+                caption = gm.group(1)
+                svg: list[str] = []
+                j = i + 1
+                while j < n and "</svg>" not in lines[j]:
+                    svg.append(lines[j])
+                    j += 1
+                if j < n:
+                    svg.append(lines[j])
+                    j += 1
+                else:
+                    problems.append(f"line {i + 1}: figure:: is never closed — "
+                                    f"a figure runs from the key to its `</svg>`")
+                if entry["figure"] is not None:
+                    problems.append(f"line {i + 1}: a second figure:: in entry "
+                                    f"{entry['title']!r} — one figure per entry")
+                elif not caption:
+                    problems.append(f"line {i + 1}: figure:: has no caption — a "
+                                    f"diagram nobody can describe is not evidence")
+                else:
+                    entry["figure"] = {"caption": caption,
+                                       "svg": "\n".join(svg).strip(),
+                                       "line": i + 1}
+                i = j
+                continue
             km = REF_KEY_RE.match(line)
             # A key only counts before the body starts. `tier:: exam` written
             # halfway down a paragraph is prose about tiers, not a header.
@@ -1189,14 +1226,17 @@ def parse_reference(text: str) -> dict:
                                     f"{entry['title']!r}")
                 else:
                     entry[key] = val
+                i += 1
                 continue
             if line.strip() or body:
                 body.append(line)
+            i += 1
             continue
 
         if line.strip() and section is not None:
             problems.append(f"line {i + 1}: content before the first '### ' "
                             f"entry of section {section['title']!r}")
+        i += 1
 
     close_entry()
     return out
@@ -1214,11 +1254,22 @@ def reference_entries(d: dict, tier: str | None = None) -> list[dict]:
     return out
 
 
+# A drawn diagram spends page space the character count cannot see, and its
+# SVG source length says nothing about its drawn size — so an exam-tier figure
+# is charged flat, at about ten lines of text.
+REF_FIGURE_COST = 600
+
+
 def reference_size(d: dict) -> int:
     """Characters on the exam sheet — titles and bodies, which is what a
-    person's eye and a printer both actually spend."""
-    return sum(len(e["title"]) + len(e["body"]) + 2
-               for e in reference_entries(d, "exam"))
+    person's eye and a printer both actually spend, plus a flat charge per
+    figure (see REF_FIGURE_COST)."""
+    total = 0
+    for e in reference_entries(d, "exam"):
+        total += len(e["title"]) + len(e["body"]) + 2
+        if e.get("figure"):
+            total += REF_FIGURE_COST
+    return total
 
 
 def validate_reference(text: str, vault: Path | None = None) -> list[str]:
@@ -1263,6 +1314,10 @@ def validate_reference(text: str, vault: Path | None = None) -> list[str]:
             problems.append(f"{tag}: duplicate of the entry at line {seen[key]}")
         else:
             seen[key] = e["line"]
+        # The same allow-list a module figure answers to — held, not stripped.
+        if e.get("figure"):
+            problems.extend(validate_svg(e["figure"]["svg"],
+                                         tag=f"{tag}: figure"))
 
     if not any(e["tier"] == "exam" for e in entries):
         problems.append("no exam-tier entries — the simplified sheet would be "
@@ -1275,14 +1330,30 @@ def validate_reference(text: str, vault: Path | None = None) -> list[str]:
     return problems
 
 
+# General (course-less) reference sheets — the S9 grammar serving topics that
+# are not enrolled courses: a DSA cheat sheet, a tool crib. They live in
+# 04-Resources/ (the vault's own home for "reference material, study guides,
+# cheat sheets"), named `<topic>-reference.md`, with `course:` holding the
+# topic key the UI round-trips (DSA ↔ dsa-reference.md).
+GENERAL_REFS = ("04-Resources",)
+
+
 def load_reference(vault: Path, course: str, split=None) -> dict | None:
-    """The course's reference note, parsed, with its problems and its measured
-    exam-sheet size. None when the course has none."""
+    """The course's — or general topic's — reference note, parsed, with its
+    problems and its measured exam-sheet size. A course folder under Academics
+    is checked first; a topic falls through to 04-Resources. None when
+    neither has one."""
+    p = None
     folder = course_folder(vault, course)
-    if folder is None:
-        return None
-    p = folder / f"{folder.name.lower()}-reference.md"
-    if not p.is_file():
+    if folder is not None:
+        cand = folder / f"{folder.name.lower()}-reference.md"
+        if cand.is_file():
+            p = cand
+    if p is None:
+        cand = vault.joinpath(*GENERAL_REFS) / f"{course.lower()}-reference.md"
+        if cand.is_file():
+            p = cand
+    if p is None:
         return None
     rel = p.relative_to(vault).as_posix()
     # `scan()`'s exact two lines, and they are easy to get inverted: the split
@@ -1320,9 +1391,9 @@ def scan_references(vault: Path, split=None) -> dict:
     """
     root = vault.joinpath(*ACADEMICS)
     out: dict = {"sheets": [], "extras": []}
-    if not root.is_dir():
-        return out
-    for folder in sorted(root.iterdir()):
+    # No early return on a missing Academics root: the general shelf below is
+    # scanned either way — a vault can have topic sheets and no courses.
+    for folder in sorted(root.iterdir()) if root.is_dir() else []:
         if not folder.is_dir():
             continue
         course = folder.name
@@ -1354,6 +1425,33 @@ def scan_references(vault: Path, split=None) -> dict:
                 "title": m.group(1) if m else p.stem.replace("-", " "),
                 "type": str(fm.get("type") or "").strip(),
             })
+
+    # General topic sheets after the courses. Only `type: reference` counts —
+    # 04-Resources is the vault's whole reference shelf, and a resource note
+    # that happens to end in `-reference` stays a resource.
+    general = vault.joinpath(*GENERAL_REFS)
+    if general.is_dir():
+        for p in sorted(general.glob("*-reference.md")):
+            try:
+                text = p.read_text(encoding="utf-8-sig", errors="replace")
+            except OSError:
+                continue
+            fm = frontmatter(text) or {}
+            if str(fm.get("type") or "").strip() != "reference":
+                continue
+            # The topic key comes from the filename, because the filename is
+            # what the loader resolves — the same one-string naming rule as a
+            # course folder. The note's own `course:` should match it.
+            topic = p.stem[: -len("-reference")].upper()
+            d = load_reference(vault, topic, split=split)
+            if d is not None:
+                out["sheets"].append({
+                    "course": topic, "file": d["file"],
+                    "sections": len(d["sections"]), "counts": d["counts"],
+                    "exam_chars": d["exam_chars"],
+                    "exam_budget": d["exam_budget"],
+                    "held": len(d["problems"]),
+                })
     return out
 
 

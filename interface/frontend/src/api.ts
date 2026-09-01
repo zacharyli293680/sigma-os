@@ -330,6 +330,9 @@ export type CheckpointListRow = {
  *  simplified sheet still fits the one double-sided page it promises. */
 export type ReferenceEntry = {
   title: string; kind: string; tier: string; body: string; line: number;
+  /** One optional diagram, the module segment's own figure grammar — walked
+   *  against the same allow-list (figure.tsx), never injected. */
+  figure: { caption: string; svg: string; line: number } | null;
 };
 export type ReferenceSection = { title: string; entries: ReferenceEntry[] };
 export type Reference = {

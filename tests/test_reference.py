@@ -187,6 +187,101 @@ class TestLoading(unittest.TestCase):
         self.assertIsNone(ln.load_reference(self.vault, "CSE-999"))
 
 
+FIGURE_OK = ('figure:: two pointers closing in\n'
+             '<svg viewBox="0 0 100 40" xmlns="http://www.w3.org/2000/svg">\n'
+             '  <circle cx="20" cy="20" r="8" fill="none" stroke="currentColor"/>\n'
+             '</svg>\n')
+
+
+class TestFigures(unittest.TestCase):
+    """An entry may carry one figure — the module segment's own grammar, third
+    home. What is worth pinning: the SVG never leaks into the body, the same
+    allow-list holds, and the exam budget charges a figure its page space."""
+
+    def sheet(self, extra: str) -> str:
+        return OK + "\n## Drawn\n\n### With a picture\nkind:: definition\n" \
+                    "tier:: full\nSome prose.\n" + extra
+
+    def test_a_figure_parses_out_of_the_body(self):
+        d = ln.parse_reference(self.sheet(FIGURE_OK))
+        e = ln.reference_entries(d)[-1]
+        self.assertEqual(e["figure"]["caption"], "two pointers closing in")
+        self.assertIn("<svg", e["figure"]["svg"])
+        self.assertNotIn("svg", e["body"])
+        self.assertEqual(ln.validate_reference(self.sheet(FIGURE_OK)), [])
+
+    def test_a_scripted_figure_is_refused(self):
+        bad = FIGURE_OK.replace("<circle", "<script>x</script><circle")
+        errs = ln.validate_reference(self.sheet(bad))
+        self.assertTrue(any("script" in e for e in errs), errs)
+
+    def test_an_unclosed_figure_is_a_problem(self):
+        errs = ln.validate_reference(self.sheet(
+            'figure:: cap\n<svg viewBox="0 0 1 1">\n'))
+        self.assertTrue(any("never closed" in e for e in errs), errs)
+
+    def test_a_second_figure_is_a_problem(self):
+        errs = ln.validate_reference(self.sheet(FIGURE_OK + FIGURE_OK))
+        self.assertTrue(any("second figure" in e for e in errs), errs)
+
+    def test_an_exam_figure_spends_budget(self):
+        with_fig = self.sheet(FIGURE_OK).replace(
+            "kind:: definition\ntier:: full\nSome prose.",
+            "kind:: definition\ntier:: exam\nSome prose.")
+        d = ln.parse_reference(with_fig)
+        plain = d
+        base = sum(len(e["title"]) + len(e["body"]) + 2
+                   for e in ln.reference_entries(plain, "exam"))
+        self.assertEqual(ln.reference_size(d), base + ln.REF_FIGURE_COST)
+
+
+class TestGeneralSheets(unittest.TestCase):
+    """A topic that is not a course — the sheet lives in 04-Resources/,
+    keyed by its filename, and rides the same loader and scan."""
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.vault = Path(self.tmp.name)
+        res = self.vault / "04-Resources"
+        res.mkdir(parents=True)
+        (res / "dsa-reference.md").write_text(
+            OK.replace("course: AA-210", "course: DSA"), encoding="utf-8")
+        # A resource note sharing the name must stay a resource.
+        (res / "old-notes-reference.md").write_text(
+            "---\ntype: resource\ntags: [resource]\n---\n\n# Old notes\n",
+            encoding="utf-8")
+        self.open_split = lambda _v, rels: (set(), set(rels))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_a_topic_loads_by_its_filename_key(self):
+        d = ln.load_reference(self.vault, "DSA", split=self.open_split)
+        self.assertIsNotNone(d)
+        self.assertEqual(d["file"], "04-Resources/dsa-reference.md")
+
+    def test_the_scan_lists_it_and_only_it(self):
+        d = ln.scan_references(self.vault, split=self.open_split)
+        self.assertEqual([s["course"] for s in d["sheets"]], ["DSA"])
+        self.assertEqual(d["extras"], [])
+
+    def test_an_academics_course_still_wins_the_name(self):
+        """A course folder and a general sheet sharing a key: the course's own
+        sheet is the one the key resolves — Academics is checked first."""
+        course = self.vault / "02-Areas" / "Academics" / "DSA"
+        course.mkdir(parents=True)
+        (course / "dsa-reference.md").write_text(OK.replace(
+            "course: AA-210", "course: DSA"), encoding="utf-8")
+        d = ln.load_reference(self.vault, "DSA", split=self.open_split)
+        self.assertEqual(d["file"], "02-Areas/Academics/DSA/dsa-reference.md")
+
+    def test_sealing_withholds_it(self):
+        d = ln.scan_references(self.vault,
+                               split=lambda _v, rels: (set(rels), set()))
+        self.assertEqual(d["sheets"], [])
+
+
 class TestScan(unittest.TestCase):
     """`scan_references` — the RF slot's list. What is worth pinning: the
     two families stay split (a `type: reference` sheet summarises, any other

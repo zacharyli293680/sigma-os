@@ -65,7 +65,11 @@ export default function ReferencesView({ open, vault, onClose }: {
 
   return (
     <div className="palette-backdrop" onClick={onClose}>
-      <div className="study refs" onClick={e => e.stopPropagation()}
+      {/* Full-bleed like WORK and the calendar — a reference sheet is a
+          reading surface, so the container paves the window (the office
+          floats it as a sheet, enterprise.css) while the content keeps a
+          readable column. */}
+      <div className="refs-view" onClick={e => e.stopPropagation()}
            role="dialog" aria-label="References">
         <header className="study-head">
           <span className="label">◇ REFERENCES — WHAT YOU LOOK UP</span>
@@ -76,17 +80,17 @@ export default function ReferencesView({ open, vault, onClose }: {
         {d === null && <p className="err pad">backend unreachable</p>}
 
         {d && courses.length === 0 && (
-          <div className="study-body">
+          <div className="refs-body"><div className="refs-col">
             <p className="dim">
               No course has a reference sheet yet. One is written from a
               course's own modules and assessments:
             </p>
             <p><code>sigma guide reference &lt;COURSE&gt;</code></p>
-          </div>
+          </div></div>
         )}
 
         {d && courses.length > 0 && (
-          <div className="study-body">
+          <div className="refs-body"><div className="refs-col">
             <nav className="refs-courses" aria-label="Courses">
               {courses.map(c => {
                 const sheet = d.sheets.find(s => s.course === c);
@@ -124,7 +128,7 @@ export default function ReferencesView({ open, vault, onClose }: {
                 workbench does — a course without one shows the dock's own
                 "write it with sigma guide reference" affordance. */}
             {sel && <ReferenceDock key={sel} course={sel} vault={vault} />}
-          </div>
+          </div></div>
         )}
       </div>
     </div>

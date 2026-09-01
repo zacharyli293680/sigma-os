@@ -3254,12 +3254,21 @@ button.legend-row.on { border-color: var(--panel-line); color: var(--ink); }
 .ref-e-b pre { font-size: var(--t-micro); }
 
 /* --- references (the RF rail slot) ----------------------------------------
- * The dialog reuses the reference dock wholesale, so almost everything below
- * is just the course pills and the imported-sheet links above it. Wider than
- * the stock `.study` because the sheet was typeset for the workbench's dock
- * and breathes better with a full column.
+ * Full-bleed like `.work` and `.agview` — the container paves the window (the
+ * office re-dresses it as a floating sheet, enterprise.css), while the sheet
+ * itself keeps a readable column: a reference at 1500px of measure is a wall,
+ * not a page. The view reuses the reference dock wholesale, so everything
+ * below is the frame, the course pills and the imported-sheet links.
  */
-.study.refs { width: min(980px, 95vw); }
+.refs-view {
+  width: 100%; height: 100%;
+  background: var(--surface);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.refs-view .pad { padding: 14px; }
+.refs-view .err { color: var(--red); font-size: var(--t-small); line-height: 1.5; }
+.refs-body { flex: 1; overflow-y: auto; padding: 14px 20px 24px; }
+.refs-col { width: 100%; max-width: 960px; margin: 0 auto; }
 /* `.err` has no rule under `.study` (build.tsx's error rendered as plain ink)
    — scoped here like `.work .err`, and build inherits the fix. */
 .study .err { color: var(--red); font-size: var(--t-small); line-height: 1.5; }

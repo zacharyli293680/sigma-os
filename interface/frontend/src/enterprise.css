@@ -511,9 +511,11 @@
   border-color: rgb(var(--bronze-rgb) / 0.42);
 }
 
-/* The full-bleed views — the calendar and the queues — float as sheets with
-   the canvas visible around them, instead of paving the whole window. */
+/* The full-bleed views — the calendar, the queues and the reference sheets —
+   float as sheets with the canvas visible around them, instead of paving the
+   whole window. */
 [data-layout="enterprise"] .agview,
+[data-layout="enterprise"] .refs-view,
 [data-layout="enterprise"] .work {
   width: calc(100% - 40px);
   height: calc(100% - 40px);

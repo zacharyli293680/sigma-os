@@ -3272,25 +3272,32 @@ button.legend-row.on { border-color: var(--panel-line); color: var(--ink); }
 /* `.err` has no rule under `.study` (build.tsx's error rendered as plain ink)
    — scoped here like `.work .err`, and build inherits the fix. */
 .study .err { color: var(--red); font-size: var(--t-small); line-height: 1.5; }
-.refs-courses {
-  display: flex; flex-wrap: wrap; gap: 4px;
-  padding: 0 0 10px; margin-bottom: 10px;
-  border-bottom: 1px solid var(--panel-line-dim);
+/* The home's cards borrow the study catalogue's classes, so they need the
+   same sentence-case override the workbench scopes to itself — the base
+   `.panel > h2` is a 10.5px eyebrow with a hairline, and a course code is
+   the card's title here, not a label above it. */
+.refs-view .wb-card > h2 {
+  color: var(--ink); font: 590 var(--t-body)/1.35 var(--sans);
+  letter-spacing: -0.01em; text-transform: none; margin: 0 0 2px; gap: 8px;
 }
-.refs-courses button {
-  display: inline-flex; align-items: baseline; gap: 6px;
-  padding: 4px 10px; cursor: pointer;
-  background: var(--surface); color: var(--ink-2);
-  border: 1px solid var(--panel-line-dim); border-radius: var(--r-pill);
-  font: 500 var(--t-small)/1.4 var(--mono);
+.refs-view .wb-card > h2::after { display: none; }
+.refs-view .wb-card-count,
+.refs-view .wb-card-bar,
+.refs-view .wb-card-meta { font: 400 var(--t-small)/1.55 var(--sans); letter-spacing: 0; }
+.refs-view .wb-card-count { color: var(--muted); }
+.refs-view .wb-card-bar { margin-bottom: 8px; }
+.refs-view .wb-card-bar .cov-bar { width: 128px; }
+/* The action sits on the card's floor, so a row of cards has one row of
+   buttons — the catalogue's own rule. */
+.refs-view .wb-card-act { margin-top: auto; padding-top: 14px; font-size: var(--t-meta); }
+.refs-view .refs-grid { padding-top: 22px; }
+.refs-card-extras { margin: 6px 0 0; padding: 0; list-style: none; }
+.refs-card-extras li { margin: 2px 0; }
+.refs-card-extras a {
+  color: var(--ink-2); text-decoration: none;
+  font: 400 var(--t-small)/1.5 var(--sans);
 }
-.refs-courses button:hover { color: var(--ink); border-color: var(--panel-line); }
-.refs-courses button.on {
-  color: var(--ink); border-color: var(--panel-line);
-  background: var(--surface-2, var(--surface));
-}
-.refs-n { color: var(--muted); font-size: var(--t-micro); font-variant-numeric: tabular-nums; }
-.refs-held { color: var(--red); font-weight: 700; }
+.refs-card-extras a:hover { color: var(--accent-ink); }
 .refs-extras {
   margin: 0 0 12px; font: 400 var(--t-small)/1.6 var(--sans);
 }

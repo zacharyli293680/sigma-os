@@ -4,9 +4,13 @@ app.py — Sigma's local interface: a small HTTP API over the vault agent.
 
     uvicorn app:app --reload --port 8787
 
-Local-first and deliberately unauthenticated: it binds to localhost, speaks to a
-vault on this disk, and inherits this machine's Claude Code login. Do not expose
-it — there is no auth because there is no network surface it is meant to face.
+Local-first: it binds to localhost, speaks to a vault on this disk, and inherits
+this machine's Claude Code login. It was deliberately unauthenticated while the
+machine was the only network surface it faced. Since 2026-09-30 `tailscale serve`
+proxies the port to Zach's tailnet, so `access.py` now sits in front of every
+route — a loopback Host passes, anything else must carry the one login Serve
+stamps on a proxied request. Never port-forward or Funnel it: Tailscale's device
+login is the wall, and the middleware is only the second lock.
 
 Streaming is Server-Sent Events rather than a websocket: the traffic is one-way
 (the browser asks once, then only listens), SSE reconnects on its own, and it is
@@ -50,6 +54,14 @@ app.add_middleware(
     allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
     allow_methods=["*"], allow_headers=["*"],
 )
+
+# Added after CORS, so it is the outermost layer: a request from off the tailnet
+# is refused before anything else looks at it, static files and SSE included.
+# One log line per refusal, in runtime/ with the other failure logs.
+from access import RemoteAccess  # noqa: E402
+from sigma import make_logger  # noqa: E402
+app.add_middleware(RemoteAccess,
+                   log=make_logger(Path(_RUNTIME_DIR) / "access.log", "access"))
 
 
 class Ask(BaseModel):

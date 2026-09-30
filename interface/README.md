@@ -14,6 +14,14 @@ frontend/   React + Vite                 → dist/ built once; npm run dev only 
 sigma ui            # one process, one port — backend + built frontend on :8787
 ```
 
+**From your phone or laptop** it is `https://<node>.<tailnet>.ts.net`, published by
+`tailscale serve --bg 8787` on this PC (the installer does not put `tailscale.exe` on
+PATH — use `"C:\Program Files\Tailscale\tailscale.exe"`). Only devices signed in to the
+tailnet can connect, and `backend/access.py` additionally refuses any non-loopback
+request whose `Tailscale-User-Login` is not the `remote_login` in
+`runtime/privacy.config.json`. `sigma ui --install-schedule` registers the logon task
+that keeps the process running (`runtime/ui.log`). Never `tailscale funnel` it.
+
 For frontend development only, run the Vite dev server against that backend:
 `cd interface\frontend; npm run dev` (any loopback port is allowed by CORS).
 

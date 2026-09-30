@@ -3,5 +3,7 @@
   "model_allow": [
     "02-Areas/ClientName/",
     "03-Projects/clientname-project/"
-  ]
+  ],
+  "_remote_login": "The one Tailscale login the interface admits from off this machine, once `tailscale serve` proxies port 8787 (interface/backend/access.py). Compared case-insensitively against the Tailscale-User-Login header Serve stamps on every proxied request. Missing or empty = every remote request is refused. Restart sigma ui after editing.",
+  "remote_login": "you@example.com"
 }

@@ -378,9 +378,12 @@ free, since it errors before a call is spent.
 
 ## 8. The interface
 
-`sigma ui` → one process on `127.0.0.1:8787` serving the API and the built frontend. Local-first and
-unauthenticated on purpose: it binds to loopback, reads a vault on this disk, and inherits a *machine*
-login — so the machine is the natural boundary. **Do not expose it.**
+`sigma ui` → one process on `127.0.0.1:8787` serving the API and the built frontend. Local-first: it
+binds to loopback, reads a vault on this disk, and inherits a *machine* login. Since 2026-09-30 it is
+also reachable from Zach's other devices through `tailscale serve` — the tailnet's device login is the
+wall, and `access.py` is the second lock (loopback Host passes; anything else needs the
+`Tailscale-User-Login` Serve stamps, matching `remote_login` in `privacy.config.json`; refused
+otherwise). A logon task, `SigmaOS-Interface`, keeps it running. **Never port-forward or Funnel it.**
 
 **As an agent** it reads the vault live (no index to rebuild), cites by `[[wikilink]]` rendered as
 `obsidian://` links, streams tokens over SSE with a collapsible trail of every lookup, surfaces the

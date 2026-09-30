@@ -65,7 +65,10 @@ class TutorBase(unittest.TestCase):
         ln.ATTEMPTS_PATH = root / "study.jsonl"
         panels._cache.clear()
         privacy.VaultPrivacy._git_ignored.cache_clear()
-        self.client = TestClient(appmod.app)
+        # base_url: the client's default Host is `testserver`, which
+        # access.py rightly treats as off-machine. Loopback is what a
+        # local browser sends, and what these tests are about.
+        self.client = TestClient(appmod.app, base_url="http://localhost")
 
     def tearDown(self):
         (appmod.VAULT, panels.VAULT, ln.ATTEMPTS_PATH,

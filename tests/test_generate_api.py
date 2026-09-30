@@ -50,7 +50,9 @@ class ApiBase(unittest.TestCase):
         self.launched = None
         panels._cache.clear()
         privacy.VaultPrivacy._git_ignored.cache_clear()
-        self.client = TestClient(appmod.app)
+        # base_url: loopback, because access.py refuses the client's default
+        # `testserver` Host as off-machine (see test_tutor for the same).
+        self.client = TestClient(appmod.app, base_url="http://localhost")
 
     def tearDown(self):
         (appmod.VAULT, panels.VAULT, commands._window_hold,

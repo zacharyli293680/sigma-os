@@ -612,9 +612,18 @@ def check_modules(out):
         out.append((OK, f"guide modules conform ({len(rows)} checked)", None))
 
 
+def check_remote(out):
+    """The tailnet surface (2026-09-30): is the interface proxied, is a login
+    configured for it, is the logon task installed, is anything answering.
+    Lives in remote.py with the installer, so the check and the thing it
+    checks cannot drift apart."""
+    import remote
+    remote.check(out)
+
+
 CHECKS = (check_capture, check_reflection, check_schedule, check_review,
           check_auth, check_privacy, check_toolgate, check_backup, check_fleet,
-          check_modules)
+          check_modules, check_remote)
 
 
 def collect():

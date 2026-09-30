@@ -388,11 +388,19 @@ def cmd_install(a):
         rc |= run(REFLECT, "--install-schedule")
         rc |= run(FLEET, "--install-schedule")
         rc |= run(RETRO, "--install-schedule")
+        # The interface at logon (2026-09-30): once tailscale serve publishes
+        # the port, a site that only runs when someone typed `sigma ui` is a
+        # site that is down from the phone.
+        import remote
+        rc |= remote.install_schedule()
     return rc
 
 
 def cmd_ui(a):
     """Start the Phase 3 interface: one process serving API and built UI."""
+    if a.install_schedule:
+        import remote
+        return remote.install_schedule(a.port)
     py = interpreter(needs_sdk=True)
     backend = REPO / "interface" / "backend"
     dist = REPO / "interface" / "frontend" / "dist"
@@ -587,6 +595,9 @@ def build_parser():
 
     u = sub.add_parser("ui", help="start the Phase 3 interface")
     u.add_argument("--port", type=int, default=8787)
+    u.add_argument("--install-schedule", action="store_true",
+                   help="register the logon task that starts it hidden, "
+                        "for tailscale serve")
 
     return ap
 

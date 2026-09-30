@@ -533,7 +533,7 @@ sigma todo                  the four priority queues     --all --json --date --n
 sigma review                score yesterday and write it down   --date --dry-run --status
                                                                 --install-schedule --at
 sigma install [what]        git hooks and scheduled tasks (all | hooks | schedules)
-sigma ui                    start the interface                     --port
+sigma ui                    start the interface                     --port --install-schedule
 ```
 
 Neither `sigma` nor `sigma.cmd` needs to be on `PATH`; an absolute path works, which is what a
@@ -894,8 +894,18 @@ architecture.
 
 ## 8. The HTTP API
 
-One process, `127.0.0.1:8787`, unauthenticated **on purpose**: it binds to loopback, reads a vault on
-this disk, and inherits a *machine* login — so the machine is the natural boundary. Do not expose it.
+One process, `127.0.0.1:8787`. It binds to loopback, reads a vault on this disk, and inherits a
+*machine* login — so the machine is the natural boundary, and until 2026-09-30 it was unauthenticated
+on purpose. **Remote access** now goes through `tailscale serve` (persisted with `--bg`; the URL is
+`https://<node>.<tailnet>.ts.net`, tailnet only): the device login is the wall, and
+`interface/backend/access.py` is the second lock — an ASGI middleware, outermost so it covers the
+static dashboard and the SSE streams too. A loopback Host passes; any other Host must carry the
+`Tailscale-User-Login` header Serve stamps on a proxied request (and strips from a client), equal to
+the one `remote_login` in `runtime/privacy.config.json`. No config, or no header, refuses — fail
+closed, like `model_allow` beside it. Refusals log one line to `runtime/access.log` without echoing
+the login. **Never port-forward or `tailscale funnel` it**; `sigma doctor` alerts if Funnel is on.
+`SigmaOS-Interface` (`sigma ui --install-schedule`, also part of `sigma install`) starts the process
+hidden at logon, stderr to `runtime/ui.log`, so the site is up whenever the PC is awake.
 
 ### Reads
 
@@ -1738,6 +1748,7 @@ Three more lessons worth carrying:
 sigma                       # what needs your attention right now
 sigma doctor                # the nine health checks
 sigma ui                    # backend + built frontend on http://127.0.0.1:8787
+sigma ui --install-schedule # the logon task that keeps it running for tailscale serve
 ```
 
 First time only: `python -m venv .venv` then `.\.venv\Scripts\pip install -r requirements.txt` in

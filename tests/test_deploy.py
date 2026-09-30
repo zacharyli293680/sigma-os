@@ -48,7 +48,9 @@ class DeployBase(unittest.TestCase):
         git(root, "clone", "-q", str(self.origin), str(self.dev))
         git(self.dev, "config", "user.email", "t@t"); git(self.dev, "config", "user.name", "t")
 
-        self._saved = (deploy.REPO, deploy.BACKEND, deploy.FRONTEND, deploy.DIST, deploy.sh)
+        self._saved = (deploy.REPO, deploy.BACKEND, deploy.FRONTEND, deploy.DIST, deploy.sh,
+                       deploy.STATE_PATH)
+        deploy.STATE_PATH = root / "deploy.state.json"
         deploy.REPO = self.live
         deploy.BACKEND = self.live / "interface" / "backend"
         deploy.FRONTEND = self.live / "interface" / "frontend"
@@ -59,7 +61,8 @@ class DeployBase(unittest.TestCase):
         self.restarts = []
 
     def tearDown(self):
-        (deploy.REPO, deploy.BACKEND, deploy.FRONTEND, deploy.DIST, deploy.sh) = self._saved
+        (deploy.REPO, deploy.BACKEND, deploy.FRONTEND, deploy.DIST, deploy.sh,
+         deploy.STATE_PATH) = self._saved
         self.tmp.cleanup()
 
     def commit(self, msg, files, cwd=None):
@@ -147,6 +150,47 @@ class HappyPaths(DeployBase):
         rc = deploy.deploy(restart=self.restart_ok)
         self.assertEqual(rc, 0)
         self.assertEqual(self.head(), sha)
+
+
+class DeployedState(DeployBase):
+    """What "changed" is measured against: the last deployed commit, not the
+    commit before the fetch."""
+
+    def test_success_records_the_commit(self):
+        sha = self.push_from_dev("ui", {"interface/frontend/src/app.tsx": "b\n"})
+        deploy.deploy(restart=self.restart_ok)
+        self.assertEqual(deploy.last_deployed(), sha)
+
+    def test_a_merge_done_by_hand_still_rebuilds(self):
+        # The first real deploy: main was merged in this checkout, HEAD was
+        # already current, and the frontend build was skipped.
+        old = self.head()
+        deploy.record(old)
+        self.commit("merged by hand", {"interface/frontend/src/app.tsx": "b\n"})
+        rc = deploy.deploy(restart=self.restart_ok)
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.steps, ["npm run build"])
+
+    def test_no_state_falls_back_to_the_prefetch_commit(self):
+        self.commit("merged by hand", {"interface/frontend/src/app.tsx": "b\n"})
+        deploy.deploy(restart=self.restart_ok)
+        self.assertEqual(self.steps, [])          # the old behaviour, as the best guess left
+
+    def test_rollback_records_the_previous_commit(self):
+        before = self.head()
+        deploy.record(before)
+        self.push_from_dev("bad ui", {"interface/frontend/src/app.tsx": "broken\n"})
+        deploy.deploy(restart=self.restart_fail_once)
+        self.assertEqual(deploy.last_deployed(), before)
+
+    def test_dry_run_plans_against_the_running_commit(self):
+        old = self.head()
+        deploy.record(old)
+        self.commit("merged by hand", {"interface/frontend/src/app.tsx": "b\n"})
+        # Nothing new at origin, but the running build is behind HEAD.
+        rc = deploy.deploy(dry_run=True, restart=self.restart_ok)
+        self.assertEqual(rc, 0)
+        self.assertEqual(self.steps, [])          # dry: nothing ran
 
 
 class Rollback(DeployBase):

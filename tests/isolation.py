@@ -47,6 +47,7 @@ _STATE = [
     ("todo", "INDEX_PATH", "todo.state.json"),
     ("leetcode", "CACHE_PATH", "leetcode.state.json"),
     ("doctor", "STATE_PATH", "doctor.state.json"),
+    ("deploy", "STATE_PATH", "deploy.state.json"),
     ("reflect", "STATE_PATH", "reflect.state.json"),
     ("sigma.spend", "SPEND_PATH", "spend.jsonl"),
     ("sigma.ledger", "LEDGER_PATH", "ledger.jsonl"),

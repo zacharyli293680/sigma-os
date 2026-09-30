@@ -27,6 +27,13 @@ would erase an uncommitted edit. So a dirty tree is refused by default, and
 The dev worktree (`sigma-os-dev`, CONTEXT §8) exists so that the live tree
 has no reason to be dirty in the first place.
 
+**What "changed" is measured against.** Not the commit before the fetch, but
+the commit that was last *deployed* (`runtime/deploy.state.json`): a merge done
+by hand in this checkout, or a `git pull` outside deploy, leaves HEAD already
+current while the running build is still the old one — and the first real
+deploy did exactly that, reporting "already current" and skipping the frontend
+build. No state yet means the pre-fetch commit, which is the best guess left.
+
 `--dry-run` prints the plan and touches nothing — not even the fetch.
 """
 import argparse
@@ -35,6 +42,10 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+from sigma import read_state, write_state  # noqa: E402
+
+STATE_PATH = HERE / "deploy.state.json"
 REPO = HERE.parent
 BACKEND = REPO / "interface" / "backend"
 FRONTEND = REPO / "interface" / "frontend"
@@ -71,6 +82,17 @@ def changed(before: str, after: str) -> list:
         return []
     out = git("diff", "--name-only", before, after)
     return [p.strip() for p in out.splitlines() if p.strip()]
+
+
+def last_deployed() -> str:
+    """The commit the running interface was built from, "" if never recorded."""
+    return str(read_state(STATE_PATH).get("deployed", "")).strip()
+
+
+def record(sha: str):
+    write_state(STATE_PATH, {"deployed": sha},
+                on_error=lambda e: print(f"deploy: could not record state: {e}",
+                                         file=sys.stderr))
 
 
 def preflight(allow_dirty: bool) -> str:
@@ -115,13 +137,15 @@ def deploy(allow_dirty=False, dry_run=False, restart=None, fetch=True) -> int:
     import remote
     restart = restart or remote.restart
     before = preflight(allow_dirty)
+    running = last_deployed() or before
     if dry_run:
         # Look, don't touch: even the fetch stays out of a dry run, so the
         # plan is computed against what origin/main was last seen to be.
         after = git("rev-parse", "origin/main", check=False) or before
         print(f"main {before[:8]} -> origin/main {after[:8]}"
-              + ("  (already there)" if before == after else ""))
-        steps = plan(before, after) or []
+              + ("  (already there)" if before == after else "")
+              + (f"; running {running[:8]}" if running != before else ""))
+        steps = plan(running, after) or []
         for what, _, _ in steps:
             print(f"  would: {what}")
         print("  would: restart the interface and wait for it")
@@ -132,11 +156,13 @@ def deploy(allow_dirty=False, dry_run=False, restart=None, fetch=True) -> int:
         git("merge", "--ff-only", "origin/main")
     after = git("rev-parse", "HEAD")
     print(f"main {before[:8]} -> {after[:8]}"
-          + ("  (already current; restarting)" if before == after else ""))
+          + ("  (already current; restarting)" if before == after else "")
+          + (f"; running {running[:8]}" if running != after else ""))
     try:
-        run_steps(plan(before, after))
+        run_steps(plan(running, after))
         if not restart():
             raise DeployError("the interface did not answer after restart")
+        record(after)
     except DeployError as e:
         print(f"deploy FAILED: {e}", file=sys.stderr)
         if allow_dirty or before == after:
@@ -147,6 +173,8 @@ def deploy(allow_dirty=False, dry_run=False, restart=None, fetch=True) -> int:
         git("reset", "-q", "--hard", before)
         run_steps(plan(after, before))
         ok = restart()
+        if ok:
+            record(before)
         print(f"  rolled back; interface {'up' if ok else 'STILL DOWN - see runtime/ui.log'}",
               file=sys.stderr)
         return 1

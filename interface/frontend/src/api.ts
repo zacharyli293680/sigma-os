@@ -1,7 +1,11 @@
 // Served by the backend itself in production, so same-origin ("") is correct on
 // any port. The absolute fallback is for `npm run dev`, where Vite serves the UI
-// and the backend lives on its default port.
-export const API = import.meta.env.DEV ? "http://127.0.0.1:8787" : "";
+// and the backend lives on its default port — or on the port VITE_API names,
+// which is how the dev worktree's `.env.local` points at its own backend on
+// 8788 instead of the live one.
+export const API = import.meta.env.DEV
+  ? (import.meta.env.VITE_API || "http://127.0.0.1:8787")
+  : "";
 
 export type Finding = { level: string; what: string; fix: string | null };
 export type Health = { vault: string; ok: boolean; findings: Finding[] };

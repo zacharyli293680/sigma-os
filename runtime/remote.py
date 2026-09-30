@@ -157,6 +157,59 @@ def interface_up(port: int = PORT) -> bool:
         return False
 
 
+def listening_pid(port: int = PORT) -> int | None:
+    """The pid bound to 127.0.0.1:<port>, from netstat; None if nothing is."""
+    try:
+        r = subprocess.run(["netstat", "-ano", "-p", "TCP"], capture_output=True,
+                           text=True, timeout=20)
+    except Exception:
+        return None
+    for line in r.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 5 and parts[1].endswith(f":{port}") and parts[3] == "LISTENING":
+            try:
+                return int(parts[4])
+            except ValueError:
+                pass
+    return None
+
+
+def wait_up(port: int = PORT, seconds: float = 30.0) -> bool:
+    import time
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if interface_up(port):
+            return True
+        time.sleep(0.5)
+    return False
+
+
+def restart(port: int = PORT) -> bool:
+    """Stop whatever holds the port, start the interface through its logon
+    task, and wait for it to answer. The task rather than a direct spawn, so
+    a restart and a reboot start the same process the same way. True if the
+    port answers within 30s."""
+    pid = listening_pid(port)
+    if pid:
+        subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, timeout=20)
+        import time
+        for _ in range(40):                       # up to 20s for the socket to free
+            if listening_pid(port) is None:
+                break
+            time.sleep(0.5)
+    if not task_installed():
+        print(f"sigma: '{TASK_NAME}' is not installed - sigma ui --install-schedule",
+              file=sys.stderr)
+        return False
+    r = subprocess.run(["schtasks", "/run", "/tn", TASK_NAME], capture_output=True,
+                       text=True, timeout=20)
+    if r.returncode != 0:
+        print(f"sigma: could not start '{TASK_NAME}': {(r.stderr or r.stdout).strip()}",
+              file=sys.stderr)
+        return False
+    return wait_up(port)
+
+
 def check(out):
     """The doctor's findings. Levels match doctor.py's: (level, what, fix)."""
     OK, TODO, ALERT, INFO = "ok", "todo", "alert", "info"

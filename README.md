@@ -103,7 +103,8 @@ The subfolder must match a real folder under `02-Areas/Academics/`; anything els
 is reported and skipped rather than filed somewhere plausible. Sources are
 cleared only once a note actually lands.
 
-**Tests** are stdlib `unittest`, not pytest, and there is no `sigma` verb for them:
+**Tests** are stdlib `unittest`, not pytest. `sigma test` (optionally `sigma test test_access
+test_deploy`) runs them from the backend venv; it is exactly this command:
 
 ```
 interface\backend\.venv\Scripts\python -m unittest discover -s tests -t tests

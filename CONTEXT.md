@@ -533,7 +533,9 @@ sigma todo                  the four priority queues     --all --json --date --n
 sigma review                score yesterday and write it down   --date --dry-run --status
                                                                 --install-schedule --at
 sigma install [what]        git hooks and scheduled tasks (all | hooks | schedules)
-sigma ui                    start the interface                     --port --install-schedule
+sigma ui                    start the interface        --port --install-schedule --restart --reload
+sigma deploy                the live checkout catches up with main   --dry-run --allow-dirty --no-fetch
+sigma test [SUITE ...]      the unittest suite from the backend venv
 ```
 
 Neither `sigma` nor `sigma.cmd` needs to be on `PATH`; an absolute path works, which is what a
@@ -906,6 +908,22 @@ closed, like `model_allow` beside it. Refusals log one line to `runtime/access.l
 the login. **Never port-forward or `tailscale funnel` it**; `sigma doctor` alerts if Funnel is on.
 `SigmaOS-Interface` (`sigma ui --install-schedule`, also part of `sigma install`) starts the process
 hidden at logon, stderr to `runtime/ui.log`, so the site is up whenever the PC is awake.
+
+**Two checkouts, one repo (2026-09-30).** The live site is this folder's working tree, so this folder
+stays on `main` and stays clean, and development happens in a sibling git worktree,
+`sigma-os-dev`, on feature branches — its own venv, `node_modules`, and `runtime/` state (a
+throwaway ledger and fleet state; the scheduled tasks and the logon task all point here, never
+there). The dev backend runs `sigma ui --port 8788 --reload`; `npm run dev` in its frontend talks to
+8788 through `VITE_API` in a gitignored `.env.local`, so a dev tab never touches the live process.
+The release path is `sigma test` in the worktree, merge to `main`, push, then **`sigma deploy` here**:
+refuse unless on a clean `main` (`--allow-dirty` deploys with no rollback), fetch and fast-forward
+(a local merge not yet pushed still deploys), `pip install -r` if requirements changed, `npm ci` if
+the lockfile changed, `npm run build` if anything under `interface/frontend/` changed or `dist/` is
+missing, then `remote.restart()` — kill the pid on the port, `schtasks /run` the logon task, wait up
+to 30s for `/` to answer. A restart that never answers resets to the previous commit, rebuilds it and
+restarts again, so the site ends on the version that was working. Deploy is deliberately a command
+you run, not a task that polls `origin/main`: the server is this PC, and a bad merge landing while
+nobody is at the keyboard would take the phone's site down until someone was.
 
 ### Reads
 
@@ -1749,6 +1767,9 @@ sigma                       # what needs your attention right now
 sigma doctor                # the nine health checks
 sigma ui                    # backend + built frontend on http://127.0.0.1:8787
 sigma ui --install-schedule # the logon task that keeps it running for tailscale serve
+sigma ui --restart          # stop the process on :8787, start it via the task, wait for it
+sigma deploy                # live checkout: fetch, ff to main, build, restart, roll back
+sigma test [SUITE ...]      # the unittest suite from the backend venv
 ```
 
 First time only: `python -m venv .venv` then `.\.venv\Scripts\pip install -r requirements.txt` in

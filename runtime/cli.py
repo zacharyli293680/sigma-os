@@ -63,6 +63,7 @@ LEETCODE = HERE / "leetcode.py"
 # `sigma review` runs retro.py, not review.py — backend/review.py already owns
 # that module name and runtime/ sits ahead of it on sys.path.
 RETRO = HERE / "retro.py"
+DEPLOY = HERE / "deploy.py"
 
 
 def interpreter(needs_sdk: bool = False) -> str:
@@ -396,11 +397,38 @@ def cmd_install(a):
     return rc
 
 
+def cmd_deploy(a):
+    args = []
+    if a.dry_run:
+        args.append("--dry-run")
+    if a.allow_dirty:
+        args.append("--allow-dirty")
+    if a.no_fetch:
+        args.append("--no-fetch")
+    return run(DEPLOY, *args, needs_sdk=False)
+
+
+def cmd_test(a):
+    """The suite, from the backend venv: it supplies fastapi/httpx, and `-t
+    tests` is required because tests/ is not a package."""
+    py = interpreter(needs_sdk=False)
+    if a.suites:
+        argv = [py, "-m", "unittest", "-v", *a.suites]
+        cwd = REPO / "tests"
+    else:
+        argv = [py, "-m", "unittest", "discover", "-s", "tests", "-t", "tests"]
+        cwd = REPO
+    return subprocess.run(argv, cwd=str(cwd)).returncode
+
+
 def cmd_ui(a):
     """Start the Phase 3 interface: one process serving API and built UI."""
     if a.install_schedule:
         import remote
         return remote.install_schedule(a.port)
+    if a.restart:
+        import remote
+        return 0 if remote.restart(a.port) else 1
     py = interpreter(needs_sdk=True)
     backend = REPO / "interface" / "backend"
     dist = REPO / "interface" / "frontend" / "dist"
@@ -411,9 +439,11 @@ def cmd_ui(a):
     url = f"http://127.0.0.1:{a.port}"
     print(f"sigma: interface on {url}   (ctrl-c to stop)")
     try:
-        return subprocess.run(
-            [py, "-m", "uvicorn", "app:app", "--host", "127.0.0.1",
-             "--port", str(a.port)], cwd=str(backend)).returncode
+        argv = [py, "-m", "uvicorn", "app:app", "--host", "127.0.0.1",
+                "--port", str(a.port)]
+        if a.reload:
+            argv.append("--reload")
+        return subprocess.run(argv, cwd=str(backend)).returncode
     except KeyboardInterrupt:
         return 0
 
@@ -598,6 +628,23 @@ def build_parser():
     u.add_argument("--install-schedule", action="store_true",
                    help="register the logon task that starts it hidden, "
                         "for tailscale serve")
+    u.add_argument("--restart", action="store_true",
+                   help="stop the process on --port, start it via the logon "
+                        "task, wait for it to answer")
+    u.add_argument("--reload", action="store_true",
+                   help="uvicorn --reload, for the dev worktree")
+
+    d = sub.add_parser("deploy", help="make the running interface match main "
+                                      "(fetch, build, restart, roll back)")
+    d.add_argument("--dry-run", action="store_true")
+    d.add_argument("--allow-dirty", action="store_true",
+                   help="deploy over uncommitted changes, with no rollback")
+    d.add_argument("--no-fetch", action="store_true",
+                   help="deploy what is checked out without asking origin")
+
+    t = sub.add_parser("test", help="run the unittest suite from the backend venv")
+    t.add_argument("suites", nargs="*", metavar="SUITE",
+                   help="test module names (test_access ...); default: all")
 
     return ap
 
@@ -639,6 +686,7 @@ def main(argv=None):
         "recall": cmd_recall,
         "todo": cmd_todo, "review": cmd_review, "leetcode": cmd_leetcode,
         "install": cmd_install, "ui": cmd_ui,
+        "deploy": cmd_deploy, "test": cmd_test,
     }[a.cmd](a)
 
 

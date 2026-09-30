@@ -22,8 +22,27 @@ request whose `Tailscale-User-Login` is not the `remote_login` in
 `runtime/privacy.config.json`. `sigma ui --install-schedule` registers the logon task
 that keeps the process running (`runtime/ui.log`). Never `tailscale funnel` it.
 
-For frontend development only, run the Vite dev server against that backend:
-`cd interface\frontend; npm run dev` (any loopback port is allowed by CORS).
+## Developing without touching the live site
+
+This folder is the **live** checkout: always on `main`, always clean, served by the
+logon task. Develop in the sibling worktree `..\sigma-os-dev` (its own venv, node
+modules and runtime state), on a branch:
+
+```powershell
+# in sigma-os-dev
+sigma ui --port 8788 --reload          # backend, hot-reloading, on its own port
+cd interface\frontend; npm run dev     # UI on :5173, talking to :8788 via .env.local
+sigma test                             # the suite, before you merge
+```
+
+Then merge to `main`, push, and in **this** folder run `sigma deploy`: it fetches,
+fast-forwards, rebuilds what changed, restarts the interface through the logon task
+and waits for it to answer — rolling back to the previous commit if it does not.
+`sigma deploy --dry-run` shows the plan. `sigma ui --restart` is the restart step
+alone, for a config edit.
+
+For frontend work against the live backend instead, `npm run dev` here talks to
+:8787 by default (any loopback port is allowed by CORS).
 
 First time only: `python -m venv .venv` then `.\.venv\Scripts\pip install -r requirements.txt`
 in `backend/`, and `npm install && npm run build` in `frontend/`.
